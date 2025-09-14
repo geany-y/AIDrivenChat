@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       // TODO: ユーザー入力のバリデーションとサニタイズを強化
-      const response = await fetch('/api?endpoint=auth/login', { // Next.js API Route経由でバックエンドにアクセス
+      const response = await fetch('/api/backend/auth/login', { // rewritesを使用
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,13 +45,14 @@ export default function LoginPage() {
 
       router.push('/chat'); // ログイン成功後、チャットページへリダイレクト
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        setError((err as { message: string }).message);
-      } else {
-        setError('An unknown error occurred');
+      let errorMessage = 'An unknown error occurred'; // デフォルトのエラーメッセージ
+
+      // err が message プロパティを持つオブジェクトの場合
+      if (typeof err === 'object' && err !== null && 'message' in err) {
+        errorMessage = (err as { message: string }).message;
       }
+
+      setError(errorMessage);
     }
   };
 

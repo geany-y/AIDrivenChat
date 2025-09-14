@@ -79,8 +79,10 @@ export default function ChatPage() {
         if (socket && !isConnected && token) {
           socket.auth = { token };
           socket.connect();
-        } else if (!token) {
+        }
+        if (!token) {
           router.push('/login');
+          return;
         }
       } catch (err) {
         console.error('Socket authentication failed:', err);
@@ -132,7 +134,7 @@ export default function ChatPage() {
    */
   const fetchChannels = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/channels`);
+      const response = await fetch('/api/backend/channels'); // rewritesを使用
       if (!response.ok) {
         throw new Error('Failed to fetch channels');
       }
@@ -142,13 +144,14 @@ export default function ChatPage() {
         setSelectedChannel(data[0]); // デフォルトで最初のチャンネルを選択
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        setError((err as { message: string }).message);
-      } else {
-        setError('An unknown error occurred');
+      let errorMessage = 'An unknown error occurred'; // デフォルトのエラーメッセージ
+
+      // err が message プロパティを持つオブジェクトの場合
+      if (typeof err === 'object' && err !== null && 'message' in err) {
+        errorMessage = (err as { message: string }).message;
       }
+
+      setError(errorMessage);
     }
   };
 
@@ -161,21 +164,21 @@ export default function ChatPage() {
    */
   const fetchMessages = async (channelId: string) => {
     try {
-      // const token = localStorage.getItem('jwtToken'); // HTTP Only Cookieからの取得に変更済み
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/channels/${channelId}/messages`); // Authorizationヘッダーを削除
+      const response = await fetch(`/api/backend/channels/${channelId}/messages`); // rewritesを使用
       if (!response.ok) {
         throw new Error('Failed to fetch messages');
       }
       const data = await response.json();
       setMessages(data);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        setError((err as { message: string }).message);
-      } else {
-        setError('An unknown error occurred');
+      let errorMessage = 'An unknown error occurred'; // デフォルトのエラーメッセージ
+
+      // err が message プロパティを持つオブジェクトの場合
+      if (typeof err === 'object' && err !== null && 'message' in err) {
+        errorMessage = (err as { message: string }).message;
       }
+
+      setError(errorMessage);
     }
   };
 
@@ -211,7 +214,7 @@ export default function ChatPage() {
   const handleLogout = async () => {
     try {
       // HTTP Only CookieをクリアするためにAPIルートを呼び出す
-      await fetch('/api?endpoint=auth/logout', {
+      await fetch('/api/backend/auth/logout', { // rewritesを使用
         method: 'DELETE',
       });
     } catch (err) {
