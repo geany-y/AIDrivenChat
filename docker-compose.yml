@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb_data:/data/db # ホストマシンにデータを永続化
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    restart: always
+    # healthcheck:
+    #   test: ["CMD", "sh", "-c", "nc -z localhost 27017"] # MongoDBのヘルスチェック (TCP接続)
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+  backend:
+    build:
+      context: ./nextjs-chat-backend
+      dockerfile: Dockerfile
+    container_name: nextjs-chat-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./nextjs-chat-backend:/app # ソースコードをマウント
+      - /app/node_modules # node_modulesはマウントしない
+    environment:
+      MONGO_URI: mongodb://root:rootpassword@mongodb:27017/chatdb?authSource=admin
+      JWT_SECRET: your_jwt_secret_key
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      - mongodb
+        # condition: service_healthy # MongoDBがhealthyになるまで待機
+    restart: always
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5000"] # バックエンドのヘルスチェック
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+
+  frontend:
+    build:
+      context: ./nextjs-chat-frontend
+      dockerfile: Dockerfile
+    container_name: nextjs-chat-frontend
+    user: root
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nextjs-chat-frontend:/app # ソースコードをマウント
+      - /app/.next # .nextディレクトリはマウントしない
+      - /app/node_modules # node_modulesはマウントしない
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:5000
+      NEXT_PUBLIC_SOCKET_IO_URL: http://localhost:5000
+    depends_on:
+      - backend
+        # condition: service_healthy # バックエンドがhealthyになるまで待機
+    restart: always
+
+volumes:
+  mongodb_data:
