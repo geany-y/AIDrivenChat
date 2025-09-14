@@ -21,10 +21,14 @@ mongoose
     .then(() => console.log("MongoDB connected"))
     .catch((err) => console.error("MongoDB connection error:", err));
 
-// ミドルウェア
 app.use(express.json());
 
-// JWT認証ミドルウェア (Socket.io用)
+/**
+ * Socket.io用のJWT認証ミドルウェア。
+ * クライアントからの接続時にトークンを検証し、ユーザー情報をソケットにアタッチします。
+ * @param {Socket} socket - Socket.ioソケットオブジェクト
+ * @param {Function} next - 次のミドルウェアに進むためのコールバック
+ */
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) {
@@ -39,25 +43,42 @@ io.use((socket, next) => {
     });
 });
 
-// ルートハンドラ (API)
 app.get("/", (req, res) => {
     res.send("Chat Backend API is running");
 });
 
-// ユーザーモデル (簡易版)
+/**
+ * ユーザーモデルのスキーマ定義。
+ * @typedef {Object} User
+ * @property {string} username - ユーザー名 (必須、ユニーク)
+ * @property {string} password - ハッシュ化されたパスワード (必須)
+ */
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
 });
 const User = mongoose.model("User", UserSchema);
 
-// チャンネルモデル (簡易版)
+/**
+ * チャンネルモデルのスキーマ定義。
+ * @typedef {Object} Channel
+ * @property {string} name - チャンネル名 (必須、ユニーク)
+ */
 const ChannelSchema = new mongoose.Schema({
     name: { type: String, required: true, unique: true },
 });
 const Channel = mongoose.model("Channel", ChannelSchema);
 
-// メッセージモデル (簡易版)
+/**
+ * メッセージモデルのスキーマ定義。
+ * @typedef {Object} Message
+ * @property {mongoose.Schema.Types.ObjectId} channelId - チャンネルID (必須)
+ * @property {mongoose.Schema.Types.ObjectId} userId - ユーザーID (必須)
+ * @property {string} username - ユーザー名 (必須)
+ * @property {string} content - メッセージ内容 (必須)
+ * @property {mongoose.Schema.Types.ObjectId} [parentId] - 親メッセージID (スレッド用、オプション)
+ * @property {Date} timestamp - タイムスタンプ (デフォルトは現在時刻)
+ */
 const MessageSchema = new mongoose.Schema({
     channelId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -80,11 +101,25 @@ const MessageSchema = new mongoose.Schema({
 });
 const Message = mongoose.model("Message", MessageSchema);
 
-// DAO/Repositoryパターン (簡易版)
+/**
+ * ユーザーデータアクセスオブジェクト (Repository)。
+ */
 class UserRepository {
+    /**
+     * ユーザー名を指定してユーザーを検索します。
+     * @param {string} username - 検索するユーザー名
+     * @returns {Promise<User|null>} ユーザーオブジェクトまたはnull
+     */
     async findByUsername(username) {
         return User.findOne({ username });
     }
+
+    /**
+     * 新しいユーザーを作成します。
+     * @param {string} username - 作成するユーザー名
+     * @param {string} passwordHash - ハッシュ化されたパスワード
+     * @returns {Promise<User>} 作成されたユーザーオブジェクト
+     */
     async create(username, passwordHash) {
         const user = new User({ username, password: passwordHash });
         await user.save();
@@ -92,13 +127,32 @@ class UserRepository {
     }
 }
 
+/**
+ * チャンネルデータアクセスオブジェクト (Repository)。
+ */
 class ChannelRepository {
+    /**
+     * すべてのチャンネルを取得します。
+     * @returns {Promise<Channel[]>} チャンネルオブジェクトの配列
+     */
     async findAll() {
         return Channel.find();
     }
+
+    /**
+     * IDを指定してチャンネルを検索します。
+     * @param {string} id - 検索するチャンネルID
+     * @returns {Promise<Channel|null>} チャンネルオブジェクトまたはnull
+     */
     async findById(id) {
         return Channel.findById(id);
     }
+
+    /**
+     * 新しいチャンネルを作成します。
+     * @param {string} name - 作成するチャンネル名
+     * @returns {Promise<Channel>} 作成されたチャンネルオブジェクト
+     */
     async create(name) {
         const channel = new Channel({ name });
         await channel.save();
@@ -106,10 +160,28 @@ class ChannelRepository {
     }
 }
 
+/**
+ * メッセージデータアクセスオブジェクト (Repository)。
+ */
 class MessageRepository {
+    /**
+     * チャンネルIDを指定してメッセージを検索します。
+     * @param {string} channelId - 検索するチャンネルID
+     * @returns {Promise<Message[]>} メッセージオブジェクトの配列
+     */
     async findByChannelId(channelId) {
         return Message.find({ channelId }).sort({ timestamp: 1 });
     }
+
+    /**
+     * 新しいメッセージを作成します。
+     * @param {string} channelId - メッセージが属するチャンネルID
+     * @param {string} userId - メッセージを送信したユーザーID
+     * @param {string} username - メッセージを送信したユーザー名
+     * @param {string} content - メッセージ内容
+     * @param {string|null} [parentId=null] - 親メッセージID (スレッド用、オプション)
+     * @returns {Promise<Message>} 作成されたメッセージオブジェクト
+     */
     async create(channelId, userId, username, content, parentId = null) {
         const message = new Message({
             channelId,
@@ -121,6 +193,12 @@ class MessageRepository {
         await message.save();
         return message;
     }
+
+    /**
+     * 親メッセージIDを指定してスレッドメッセージを検索します。
+     * @param {string} parentId - 親メッセージID
+     * @returns {Promise<Message[]>} スレッドメッセージオブジェクトの配列
+     */
     async findThreadMessages(parentId) {
         return Message.find({ parentId }).sort({ timestamp: 1 });
     }
@@ -130,7 +208,12 @@ const userRepository = new UserRepository();
 const channelRepository = new ChannelRepository();
 const messageRepository = new MessageRepository();
 
-// 認証ルート
+/**
+ * ユーザー認証のためのログインAPI。
+ * ユーザー名とパスワードを受け取り、検証に成功した場合JWTを返します。
+ * @param {Object} req - Expressリクエストオブジェクト
+ * @param {Object} res - Expressレスポンスオブジェクト
+ */
 app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -149,14 +232,25 @@ app.post("/api/auth/login", async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: "1h" }
         );
-        res.json({ token });
+        // JWTトークンをHTTP Only Cookieとして設定
+        res.cookie("jwt", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production", // 本番環境ではHTTPSを強制
+            sameSite: "Lax", // CSRF対策
+            maxAge: 3600000, // 1時間 (expiresInと同じ)
+        });
+        res.json({ message: "Login successful" });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// チャンネル取得ルート (認証不要、初期データ取得用)
+/**
+ * すべてのチャンネルを取得するAPI。
+ * @param {Object} req - Expressリクエストオブジェクト
+ * @param {Object} res - Expressレスポンスオブジェクト
+ */
 app.get("/api/channels", async (req, res) => {
     try {
         const channels = await channelRepository.findAll();
@@ -167,7 +261,11 @@ app.get("/api/channels", async (req, res) => {
     }
 });
 
-// メッセージ履歴取得ルート (認証必要)
+/**
+ * 特定のチャンネルのメッセージ履歴を取得するAPI。
+ * @param {Object} req - Expressリクエストオブジェクト
+ * @param {Object} res - Expressレスポンスオブジェクト
+ */
 app.get("/api/channels/:channelId/messages", async (req, res) => {
     // ここにJWT認証ミドルウェアを追加することも可能
     // 例: authMiddleware (後で実装)
@@ -182,7 +280,11 @@ app.get("/api/channels/:channelId/messages", async (req, res) => {
     }
 });
 
-// Socket.io接続処理
+/**
+ * Socket.io接続イベントハンドラ。
+ * クライアントが接続した際の処理を定義します。
+ * @param {Socket} socket - 接続されたSocket.ioソケットオブジェクト
+ */
 io.on("connection", (socket) => {
     console.log("a user connected:", socket.user.username);
 
@@ -243,13 +345,20 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// 初期ユーザーとチャンネルの作成 (開発用)
+/**
+ * 開発用に初期ユーザーとチャンネルを作成します。
+ * 本番環境ではこの関数は実行しないか、適切な初期化スクリプトに含めるべきです。
+ * 初期ユーザーのパスワードは環境変数 INITIAL_USER_PASSWORD から読み込まれます。
+ * 環境変数が設定されていない場合は "password" がデフォルトとして使用されます。
+ */
 async function createInitialData() {
     try {
         // ユーザーが存在しない場合のみ作成
         let user = await userRepository.findByUsername("testuser");
         if (!user) {
-            const hashedPassword = await bcrypt.hash("password", 10);
+            const initialPassword =
+                process.env.INITIAL_USER_PASSWORD || "password";
+            const hashedPassword = await bcrypt.hash(initialPassword, 10);
             user = await userRepository.create("testuser", hashedPassword);
             console.log('Initial user "testuser" created.');
         }

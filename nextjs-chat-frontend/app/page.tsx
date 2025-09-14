@@ -3,6 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * ホームページコンポーネント。
+ * ログインページへリダイレクトします。
+ * @returns {JSX.Element} ホームページ
+ */
 export default function HomePage() {
   const router = useRouter();
 

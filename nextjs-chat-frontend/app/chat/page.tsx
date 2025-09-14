@@ -3,17 +3,43 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../components/SocketProvider';
+import ChannelList from '../../components/ChannelList'; // 追加
+import MessageList from '../../components/MessageList'; // 追加
+import MessageInput from '../../components/MessageInput'; // 追加
 
+/**
+ * ユーザーインターフェース。
+ * @typedef {Object} User
+ * @property {string} id - ユーザーID
+ * @property {string} username - ユーザー名
+ */
 interface User {
   id: string;
   username: string;
 }
 
+/**
+ * チャンネルインターフェース。
+ * @typedef {Object} Channel
+ * @property {string} _id - チャンネルID
+ * @property {string} name - チャンネル名
+ */
 interface Channel {
   _id: string;
   name: string;
 }
 
+/**
+ * メッセージインターフェース。
+ * @typedef {Object} Message
+ * @property {string} _id - メッセージID
+ * @property {string} channelId - チャンネルID
+ * @property {string} userId - ユーザーID
+ * @property {string} username - ユーザー名
+ * @property {string} content - メッセージ内容
+ * @property {string | null} parentId - 親メッセージID (スレッド用、nullの場合はトップレベルメッセージ)
+ * @property {string} timestamp - メッセージのタイムスタンプ
+ */
 interface Message {
   _id: string;
   channelId: string;
@@ -24,6 +50,11 @@ interface Message {
   timestamp: string;
 }
 
+/**
+ * チャットページコンポーネント。
+ * チャンネルリスト、メッセージ表示、メッセージ送信機能を提供します。
+ * @returns {JSX.Element} チャットページ
+ */
 export default function ChatPage() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
@@ -34,19 +65,39 @@ export default function ChatPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('jwtToken');
-    if (!token) {
-      router.push('/login');
-    } else if (socket && !isConnected) {
-      // トークンがあればソケットを接続
-      socket.auth = { token };
-      socket.connect();
-    }
+    const authenticateSocket = async () => {
+      try {
+        const response = await fetch('/api?endpoint=socket-auth');
+        if (!response.ok) {
+          // トークンがない、または無効な場合はログインページへリダイレクト
+          router.push('/login');
+          return;
+        }
+        const data = await response.json();
+        const token = data.token;
+
+        if (socket && !isConnected && token) {
+          socket.auth = { token };
+          socket.connect();
+        } else if (!token) {
+          router.push('/login');
+        }
+      } catch (err) {
+        console.error('Socket authentication failed:', err);
+        router.push('/login');
+      }
+    };
+
+    authenticateSocket();
   }, [router, socket, isConnected]);
 
   useEffect(() => {
     if (isConnected && socket) {
-      // チャンネルリストを取得
+      /**
+       * チャンネルリストをバックエンドから取得します。
+       * @async
+       * @function fetchChannels
+       */
       fetchChannels();
 
       socket.on('receiveMessage', (message: Message) => {
@@ -61,6 +112,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (selectedChannel) {
+      /**
+       * 特定のチャンネルのメッセージ履歴をバックエンドから取得します。
+       * @async
+       * @function fetchMessages
+       * @param {string} channelId - メッセージを取得するチャンネルのID
+       */
       fetchMessages(selectedChannel._id);
       if (socket && isConnected) {
         socket.emit('joinChannel', selectedChannel._id);
@@ -68,6 +125,11 @@ export default function ChatPage() {
     }
   }, [selectedChannel, socket, isConnected]);
 
+  /**
+   * チャンネルリストをバックエンドから取得します。
+   * @async
+   * @function fetchChannels
+   */
   const fetchChannels = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/channels`);
@@ -90,14 +152,17 @@ export default function ChatPage() {
     }
   };
 
+  /**
+   * 特定のチャンネルのメッセージ履歴をバックエンドから取得します。
+   * HTTP Only Cookieは自動的に送信されるため、明示的なAuthorizationヘッダーは不要です。
+   * @async
+   * @function fetchMessages
+   * @param {string} channelId - メッセージを取得するチャンネルのID
+   */
   const fetchMessages = async (channelId: string) => {
     try {
-      const token = localStorage.getItem('jwtToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/channels/${channelId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // const token = localStorage.getItem('jwtToken'); // HTTP Only Cookieからの取得に変更済み
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/channels/${channelId}/messages`); // Authorizationヘッダーを削除
       if (!response.ok) {
         throw new Error('Failed to fetch messages');
       }
@@ -114,20 +179,51 @@ export default function ChatPage() {
     }
   };
 
+  /**
+   * メッセージ送信ハンドラ。
+   * 入力されたメッセージをSocket.io経由で送信します。
+   * @param {FormEvent} e - フォームイベントオブジェクト
+   */
   const handleSendMessage = (e: FormEvent) => {
     e.preventDefault();
-    if (socket && isConnected && selectedChannel && newMessage.trim()) {
-      socket.emit('sendMessage', { channelId: selectedChannel._id, content: newMessage });
+    const trimmedMessage = newMessage.trim();
+    if (!trimmedMessage) {
+      setError('メッセージを入力してください。');
+      return;
+    }
+    // TODO: メッセージのバリデーションとサニタイズを強化 (例: 文字数制限、HTMLエスケープ)
+    // 現時点では簡易的なサニタイズとして、HTMLタグをエスケープする処理を検討
+    const sanitizedMessage = trimmedMessage.replace(/</g, '<').replace(/>/g, '>');
+
+    if (socket && isConnected && selectedChannel) {
+      socket.emit('sendMessage', { channelId: selectedChannel._id, content: sanitizedMessage });
       setNewMessage('');
+      setError(''); // エラーをクリア
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('jwtToken');
-    if (socket) {
-      socket.disconnect();
+  /**
+   * ログアウトハンドラ。
+   * JWTトークンを削除し、Socket.io接続を切断してログインページへリダイレクトします。
+   * @async
+   * @function handleLogout
+   */
+  const handleLogout = async () => {
+    try {
+      // HTTP Only CookieをクリアするためにAPIルートを呼び出す
+      await fetch('/api?endpoint=auth/logout', {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Logout API call failed:', err);
+      // エラーが発生しても、フロントエンドの状態はクリアしてリダイレクトする
+    } finally {
+      // localStorage.removeItem('jwtToken'); // HTTP Only Cookieからの削除に変更済み
+      if (socket) {
+        socket.disconnect();
+      }
+      router.push('/login');
     }
-    router.push('/login');
   };
 
   if (!isConnected) {
@@ -140,29 +236,12 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* サイドバー (チャンネルリスト) */}
-      <div className="w-64 border-r bg-white p-4 shadow-md">
-        <h2 className="mb-4 text-xl font-bold">チャンネル</h2>
-        <ul>
-          {channels.map((channel) => (
-            <li
-              key={channel._id}
-              className={`mb-2 cursor-pointer rounded-md p-2 hover:bg-blue-100 ${
-                selectedChannel?._id === channel._id ? 'bg-blue-200' : ''
-              }`}
-              onClick={() => setSelectedChannel(channel)}
-            >
-              #{channel.name}
-            </li>
-          ))}
-        </ul>
-        <button
-          onClick={handleLogout}
-          className="mt-4 w-full rounded-md bg-red-500 py-2 text-white hover:bg-red-600"
-        >
-          ログアウト
-        </button>
-      </div>
+      <ChannelList
+        channels={channels}
+        selectedChannel={selectedChannel}
+        onSelectChannel={setSelectedChannel}
+        onLogout={handleLogout}
+      />
 
       {/* メインチャットエリア */}
       <div className="flex flex-1 flex-col">
@@ -173,41 +252,15 @@ export default function ChatPage() {
           {/* オンラインユーザー表示など、将来的に追加 */}
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          {messages.map((message) => (
-            <div key={message._id} className="mb-4 rounded-lg bg-white p-3 shadow-sm">
-              <div className="flex items-baseline justify-between">
-                <span className="font-semibold text-blue-600">{message.username}</span>
-                <span className="text-xs text-gray-500">
-                  {new Date(message.timestamp).toLocaleString()}
-                </span>
-              </div>
-              <p className="mt-1 text-gray-800">{message.content}</p>
-              {/* スレッド表示は将来的に追加 */}
-            </div>
-          ))}
-        </div>
+        <MessageList messages={messages} />
 
-        <footer className="border-t bg-white p-4 shadow-md">
-          <form onSubmit={handleSendMessage} className="flex">
-            <input
-              type="text"
-              className="flex-1 rounded-l-md border p-2 focus:border-blue-500 focus:ring focus:ring-blue-200"
-              placeholder="メッセージを入力..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              disabled={!selectedChannel}
-            />
-            <button
-              type="submit"
-              className="rounded-r-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              disabled={!selectedChannel || !newMessage.trim()}
-            >
-              送信
-            </button>
-          </form>
-          {error && <p className="mt-2 text-red-500">{error}</p>}
-        </footer>
+        <MessageInput
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          onSendMessage={handleSendMessage}
+          selectedChannel={selectedChannel}
+          error={error}
+        />
       </div>
     </div>
   );

@@ -3,18 +3,30 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+/**
+ * ログインページコンポーネント。
+ * ユーザー名とパスワードを入力してログインします。
+ * @returns {JSX.Element} ログインページ
+ */
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
 
+  /**
+   * ログイン処理ハンドラ。
+   * ユーザー名とパスワードをバックエンドに送信し、認証を行います。
+   * 成功した場合、チャットページへリダイレクトします。
+   * @param {React.FormEvent} e - フォームイベントオブジェクト
+   */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      const response = await fetch('/api?endpoint=auth/login', {
+      // TODO: ユーザー入力のバリデーションとサニタイズを強化
+      const response = await fetch('/api?endpoint=auth/login', { // Next.js API Route経由でバックエンドにアクセス
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,8 +39,10 @@ export default function LoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      const data = await response.json();
-      localStorage.setItem('jwtToken', data.token);
+      // バックエンドがHTTP Only Cookieを設定するため、フロントエンドでトークンを保存する必要はない
+      // const data = await response.json(); // レスポンスボディにトークンは含まれない
+      // localStorage.setItem('jwtToken', data.token); // 削除
+
       router.push('/chat'); // ログイン成功後、チャットページへリダイレクト
     } catch (err: unknown) {
       if (err instanceof Error) {
