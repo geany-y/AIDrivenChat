@@ -67,7 +67,7 @@ export default function ChatPage() {
   useEffect(() => {
     const authenticateSocket = async () => {
       try {
-        const response = await fetch('/api?endpoint=socket-auth');
+        const response = await fetch('/api/backend/socket-auth');
         if (!response.ok) {
           // トークンがない、または無効な場合はログインページへリダイレクト
           router.push('/login');

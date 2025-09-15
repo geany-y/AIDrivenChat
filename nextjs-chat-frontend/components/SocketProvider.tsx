@@ -27,12 +27,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_IO_URL || 'http://localhost:5000';
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_IO_URL || 'http://localhost: 5000';
     const newSocket = io(socketUrl, {
       autoConnect: false,
-      auth: {
-        token: localStorage.getItem('jwtToken'), // JWTトークンを認証に使用
-      },
+      withCredentials: true, // HTTP Only Cookieを送信するために必要
     });
 
     newSocket.on('connect', () => {

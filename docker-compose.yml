@@ -55,7 +55,7 @@ services:
       - /app/.next # .nextディレクトリはマウントしない
       - /app/node_modules # node_modulesはマウントしない
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:5000
+      NEXT_PUBLIC_BACKEND_URL: http://backend:5000
       NEXT_PUBLIC_SOCKET_IO_URL: http://localhost:5000
     depends_on:
       - backend
