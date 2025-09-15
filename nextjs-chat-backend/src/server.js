@@ -17,8 +17,13 @@ const io = socketIo(server, {
 
 // MongoDB接続
 mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB connected"))
+    .connect(process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 20000, // サーバー選択のタイムアウトを20秒に設定
+    })
+    .then(() => {
+        console.log("MongoDB connected");
+        createInitialData(); // MongoDB接続後に初期データを作成
+    })
     .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use(express.json());
@@ -146,6 +151,15 @@ class ChannelRepository {
      */
     async findById(id) {
         return Channel.findById(id);
+    }
+
+    /**
+     * チャンネル名を指定してチャンネルを検索します。
+     * @param {string} name - 検索するチャンネル名
+     * @returns {Promise<Channel|null>} チャンネルオブジェクトまたはnull
+     */
+    async findByName(name) {
+        return Channel.findOne({ name });
     }
 
     /**
@@ -364,16 +378,12 @@ async function createInitialData() {
         }
 
         // チャンネルが存在しない場合のみ作成
-        let generalChannel = await channelRepository.findById(
-            "650d7e7e7e7e7e7e7e7e7e7e"
-        ); // 仮のID
+        let generalChannel = await channelRepository.findByName("general");
         if (!generalChannel) {
             generalChannel = await channelRepository.create("general");
             console.log('Initial channel "general" created.');
         }
-        let randomChannel = await channelRepository.findById(
-            "650d7e7e7e7e7e7e7e7e7e7f"
-        ); // 仮のID
+        let randomChannel = await channelRepository.findByName("random");
         if (!randomChannel) {
             randomChannel = await channelRepository.create("random");
             console.log('Initial channel "random" created.');
@@ -382,6 +392,3 @@ async function createInitialData() {
         console.error("Error creating initial data:", err);
     }
 }
-
-// サーバー起動時に初期データを作成
-createInitialData(); // 開発時に一度実行したらコメントアウトするか、適切な起動スクリプトに含める
