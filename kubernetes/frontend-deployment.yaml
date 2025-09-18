@@ -16,7 +16,7 @@ spec:
         spec:
             containers:
                 - name: frontend
-                  image: nextjs-chat-frontend:latest # ローカルでビルドしたイメージ名
+                  image: nextjs-chat-frontend:latest # minikube用
                   ports:
                       - containerPort: 3000
                   env:

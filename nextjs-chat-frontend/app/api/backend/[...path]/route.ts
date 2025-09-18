@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: RouteContext<"/api/backend/[...path]">
 ) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -54,7 +54,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: RouteContext<"/api/backend/[...path]">
 ) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 

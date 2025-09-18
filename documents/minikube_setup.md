@@ -114,3 +114,30 @@ minikubeはローカルKubernetesクラスタを簡単にセットアップす�
     `host: Running`、`kubelet: Running`、`apiserver: Running`と表示されれば、クラスタは完全に起動しています。
 
 これで、WSL2上にminikube環境が構築され、アプリケーションをデプロイする準備が整いました。
+
+## 5. ホスト設定の追加
+
+minikube環境でIngress経由でアプリケーションにアクセスするためには、以下のホスト名を`C:\Windows\System32\drivers\etc\hosts`ファイルに追加する必要があります。
+
+1.  **minikubeのIPアドレスを確認**:
+    ```bash
+    minikube ip
+    ```
+    このコマンドで表示されるIPアドレスをメモします。
+
+2.  **hostsファイルの編集**:
+    管理者権限でテキストエディタ（例: メモ帳）を開き、`C:\Windows\System32\drivers\etc\hosts`ファイルを開きます。
+    ファイルの最後に以下の行を追加します。`[minikube_ip]`は上記で確認したminikubeのIPアドレスに置き換えてください。
+
+    ```
+    [minikube_ip] chat.local
+    [minikube_ip] api.chat.local
+    ```
+
+    例:
+    ```
+    192.168.49.2 chat.local
+    192.168.49.2 api.chat.local
+    ```
+
+    これにより、ブラウザから`http://chat.local`や`http://api.chat.local`でアプリケーションにアクセスできるようになります。

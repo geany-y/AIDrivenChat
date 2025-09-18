@@ -74,7 +74,7 @@
 
 *   **問題**: Ingressを設定しても、ホストマシン（Windows）のブラウザからIngressで設定したホスト名（例: `chat.local`）にアクセスすると、`ERR_CONNECTION_TIMED_OUT`が発生する。また、`minikube service`コマンドで動的に割り当てられるポート番号が、フロントエンドの環境変数設定を困難にする。
 *   **解決策**:
-    *   **`/etc/hosts`の修正**: ホストマシン（Windows）の`C:\Windows\System32\drivers\etc\hosts`ファイルに、minikubeのIPアドレスとIngressのホスト名（例: `192.168.49.2 chat.local`、`192.168.49.2 api.chat.local`）のマッピングを追加する。これにより、ブラウザがIngressコントローラーにリクエストを送信できるようになる。
+    *   **`/etc/hosts`の修正**: ホストマシン（Windows）の`C:\Windows\System32\drivers\etc\hosts`ファイルに、minikubeのIPアドレスとIngressのホスト名（例: `192.168.49.2 chat.local`、`192.168.49.2 api.chat.local`）のマッピングを追加する。これにより、ブラウザがIngressコントローラーにリクエストを送信できるようになる。詳細な手順は`documents/minikube_setup.md`の「5. ホスト設定の追加」をご参照ください。
     *   **Ingressの`rewrite-target`アノテーションの削除**: Next.jsのApp Routerでは不要であり、問題を引き起こす可能性があるため、`nginx.ingress.kubernetes.io/rewrite-target: /`アノテーションを削除する。
     *   **環境変数の設定**:
         *   `kubernetes/frontend-deployment.yaml`の`NEXT_PUBLIC_BACKEND_URL`と`NEXT_PUBLIC_SOCKET_IO_URL`の`value`を、Ingressで設定するバックエンドのホスト名（例: `http://api.chat.local`）に設定する。

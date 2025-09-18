@@ -25,7 +25,7 @@ spec:
                       ]
             containers:
                 - name: backend
-                  image: nextjs-chat-backend:latest # ローカルでビルドしたイメージ名
+                  image: nextjs-chat-backend:latest # minikube用
                   ports:
                       - containerPort: 5000
                   env:

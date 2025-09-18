@@ -11,10 +11,11 @@ kubectl config use-context minikube
 ```
 
 ## 2. Dockerイメージのビルド (minikubeのDockerデーモンを使用)
+- eval $(minikube docker-env)が設定されていることが前提
 
 ```bash
-eval $(minikube docker-env) && docker build -t nextjs-chat-backend:latest ./nextjs-chat-backend
-eval $(minikube docker-env) && docker build -t nextjs-chat-frontend:latest ./nextjs-chat-frontend
+docker build -t nextjs-chat-backend:latest ./nextjs-chat-backend
+docker build -t nextjs-chat-frontend:latest ./nextjs-chat-frontend
 ```
 
 ## 3. Kubernetesマニフェストの適用
